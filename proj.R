@@ -41,4 +41,34 @@ primary_data <- select(inner_join(primary_data, shanghai_data, by="Date"), Date,
 primary_data <- select(inner_join(primary_data, hong_kong_data, by="Date"), Date, tech_wp_change, sp_wp_change, nikkei_wp_change,shanghai_wp_change, hong_kong_wp_change=wp_change)
 
 # Beta(stock) = covariance(Stock's % weekly change, index's % weekly change) / Variance(index's % weekly change)
+# ** these are irrelevant, just use model **
+beta <- function(vec1, vec2) {
+  return(cov(vec1,vec2)/var(vec2))
+}
 
+betas <- c(0, beta(primary_data$tech_wp_change, primary_data$sp_wp_change), 
+           beta(primary_data$tech_wp_change, primary_data$nikkei_wp_change),
+           beta(primary_data$tech_wp_change, primary_data$shanghai_wp_change),
+           beta(primary_data$tech_wp_change, primary_data$hong_kong_wp_change))
+betas[1] <- mean(primary_data$tech_wp_change) - mean(primary_data[,2])*betas[2] -
+            mean(primary_data[,3])*betas[3]- mean(primary_data[,4])*betas[4] -
+            mean(primary_data[,5])*betas[5]
+
+# model of tech data vs various foreign market indices
+tech_model <- lm(formula=tech_wp_change ~ 1+sp_wp_change+nikkei_wp_change+shanghai_wp_change+hong_kong_wp_change, data=primary_data)
+
+# predictions
+primary_data$p_tech_wp_change <- predict(tech_model, primary_data)
+
+# analysis
+rmse <- function(target, prediction) {
+  return(sqrt(mean((target - prediction)^2)))
+}
+
+r2 <- function(target, prediction) {
+  # cor(target, prediction)^2
+  return(sum((prediction-mean(target))^2)/sum((target-mean(target))^2))
+}
+
+print(paste("RMSE of tech prediction:", rmse(primary_data$tech_wp_change, primary_data$p_tech_wp_change)))
+print(paste("R^2 of tech prediction:",r2(primary_data$tech_wp_change, primary_data$p_tech_wp_change)))
